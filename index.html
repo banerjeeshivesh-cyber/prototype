@@ -46,6 +46,7 @@ const inventoryCounts={ewaste:new Map(),waste:new Map(),regular:new Map()};
 const FRIENDLY={'plastic bag':'Plastic bag','cell phone':'Small electronic item*','laptop':'Laptop','keyboard':'Keyboard','mouse':'Computer mouse','tv':'TV / monitor','remote':'Remote control','bottle':'Bottle','cup':'Cup','book':'Book','can':'Can','wine glass':'Glass bottle / glass','backpack':'Backpack'};
 let model=null, wasteModel=null, stream=null, running=false, busy=false, total=0, ecount=0, ocount=0, eventCount=0;
 let seen=new Map(), lastAlert=0, lastFrame=0, frameN=0;
+let lastWastePreds=[], lastWasteAt=0;
 function setStatus(s,live=false){$('statusText').textContent=s;$('liveDot').classList.toggle('live',live)}
 function friendly(c){return FRIENDLY[c]||c.replace(/\b\w/g,m=>m.toUpperCase())}
 function category(c){return EWASTE.has(c)?'ewaste':POTENTIAL_WASTE.has(c)?'waste':'regular'}
@@ -89,7 +90,11 @@ async function loop(){
    const n=Math.min(5,Math.round(nData[0]||0));
    for(let i=0;i<n;i++){const b=boxes.slice(i*4,(i+1)*4),score=scores[i],cls=Math.round(classes[i]);if(score>=.4&&cls===2)wastePreds.push({x:b[1]*video.videoWidth,y:b[0]*video.videoHeight,w:(b[3]-b[1])*video.videoWidth,h:(b[2]-b[0])*video.videoHeight,label:'Plastic waste',score});}
    Object.values(result).forEach(t=>t.dispose&&t.dispose());
+   // Stabilize flickering predictions: retain the latest valid plastic-waste box briefly.
+   if(wastePreds.length){lastWastePreds=wastePreds;lastWasteAt=Date.now();}
   }catch(wasteErr){console.warn('Plastic-waste model frame failed',wasteErr);}}
+  if(!wastePreds.length&&Date.now()-lastWasteAt<1600)wastePreds=lastWastePreds;
+  if(Date.now()-lastWasteAt>=1600)lastWastePreds=[];
   draw(preds,wastePreds);
   const visible=preds.filter(p=>p.class!=='person'&&EWASTE.has(p.class)&&p.score>=.62&&!(p.class==='cell phone'&&(p.bbox[3]/Math.max(1,p.bbox[2])<1.05||p.bbox[3]/Math.max(1,p.bbox[2])>2.9||p.bbox[2]/video.videoWidth>.42||p.bbox[3]/video.videoHeight>.8)));
   const keys=new Set();
