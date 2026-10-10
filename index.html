@@ -95,16 +95,19 @@ async function loop(){
   }catch(wasteErr){console.warn('Plastic-waste model frame failed',wasteErr);}}
   if(!wastePreds.length&&Date.now()-lastWasteAt<1600)wastePreds=lastWastePreds;
   if(Date.now()-lastWasteAt>=1600)lastWastePreds=[];
-  // If the general object model sees a book overlapping the waste-model box,
-  // prefer the more specific everyday-object result over a plastic-waste guess.
-  const books=preds.filter(p=>p.class==='book'&&p.score>=.35);
-  const overlapsBook=w=>books.some(p=>{
-   const [bx,by,bw,bh]=p.bbox,ix=Math.max(0,Math.min(w.x+w.w,bx+bw)-Math.max(w.x,bx)),iy=Math.max(0,Math.min(w.y+w.h,by+bh)-Math.max(w.y,by));
-   const inter=ix*iy,small=Math.min(w.w*w.h,bw*bh);
-   return small>0&&inter/small>.25;
-  });
+  // Resolve obvious label conflicts: a flat notebook can trigger unrelated
+  // large-object labels. When "book" overlaps those predictions, keep the book.
+  const books=preds.filter(p=>p.class==='book'&&p.score>=.25);
+  const overlapRatio=(a,b)=>{
+   const [ax,ay,aw,ah]=a.bbox||[a.x,a.y,a.w,a.h], [bx,by,bw,bh]=b.bbox||[b.x,b.y,b.w,b.h];
+   const ix=Math.max(0,Math.min(ax+aw,bx+bw)-Math.max(ax,bx)),iy=Math.max(0,Math.min(ay+ah,by+bh)-Math.max(ay,by));
+   const inter=ix*iy,smaller=Math.min(aw*ah,bw*bh);return smaller>0?inter/smaller:0;
+  };
+  const impossibleForBook=new Set(['refrigerator','toilet']);
+  const displayPreds=preds.filter(p=>!(impossibleForBook.has(p.class)&&books.some(b=>overlapRatio(p,b)>.25)));
+  const overlapsBook=w=>books.some(p=>overlapRatio(w,p)>.25);
   if(books.length){wastePreds=wastePreds.filter(w=>!overlapsBook(w));lastWastePreds=lastWastePreds.filter(w=>!overlapsBook(w));}
-  draw(preds,wastePreds);
+  draw(displayPreds,wastePreds);
   const visible=preds.filter(p=>p.class!=='person'&&!SUPPRESS_CLASSES.has(p.class)&&p.score>=.45&&!(p.class==='cell phone'&&(p.bbox[3]/Math.max(1,p.bbox[2])<1.05||p.bbox[3]/Math.max(1,p.bbox[2])>2.9||p.bbox[2]/video.videoWidth>.42||p.bbox[3]/video.videoHeight>.8)));
   const keys=new Set();
   for(const p of visible){
