@@ -25,8 +25,8 @@
 <div class="minirow"><section class="mini"><div class="metriclabel">E-device alerts</div><div class="num" id="ewasteCount" style="color:var(--amber)">0</div></section><section class="mini"><div class="metriclabel">Other objects</div><div class="num" id="otherCount">0</div></section></div>
 <section class="panel feed"><div class="panelhead"><h2>DETECTION ACTIVITY</h2><span class="subtle" id="feedCount">0 events</span></div><div class="feedbody" id="feed"><div class="empty">No detections yet. Start the scan to populate this feed.</div></div></section>
 </aside></main>
-<div class="note"><strong>Prototype limitation:</strong> this uses a general-purpose object detector, not a custom-trained waste classifier. It can recognize some familiar objects (including phones, laptops, keyboards, mice, TVs and remotes) as possible e-waste, but it cannot reliably tell whether an item is discarded, identify every kind of waste, or detect all electronics such as loose circuit boards and cables. Treat alerts as prompts for human review.</div>
-<footer class="footer"><span>Privacy-first processing · Camera frames stay in this browser</span><span>Prototype build 0.1 · Detection results may be wrong</span></footer>
+<div class="note"><strong>Prototype limitation:</strong> this uses a general-purpose object detector, not a custom-trained waste classifier. It can recognize some familiar objects (including phones, laptops, keyboards, mice, TVs and remotes) as possible e-waste, but it cannot reliably tell whether an item is discarded, identify every kind of waste, or detect all electronics such as loose circuit boards and cables. The model may confuse phones with chargers, watches or other small electronics; items labelled “Small electronic item*” are uncertain guesses, not exact identification. Treat alerts as prompts for human review.</div>
+<footer class="footer"><span>Privacy-first processing · Camera frames stay in this browser</span><span>Prototype build 0.2 · People excluded from displayed detections · Labels may be wrong</span></footer>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
@@ -36,7 +36,7 @@ const $ = id => document.getElementById(id);
 const video=$('video'), canvas=$('overlay'), ctx=canvas.getContext('2d');
 const startBtn=$('startBtn'), stopBtn=$('stopBtn');
 const EWASTE=new Set(['cell phone','laptop','keyboard','mouse','tv','remote']);
-const FRIENDLY={'cell phone':'Phone','laptop':'Laptop','keyboard':'Keyboard','mouse':'Computer mouse','tv':'TV / monitor','remote':'Remote control','bottle':'Bottle','cup':'Cup','book':'Book','can':'Can','wine glass':'Glass bottle / glass','backpack':'Backpack'};
+const FRIENDLY={'cell phone':'Small electronic item*','laptop':'Laptop','keyboard':'Keyboard','mouse':'Computer mouse','tv':'TV / monitor','remote':'Remote control','bottle':'Bottle','cup':'Cup','book':'Book','can':'Can','wine glass':'Glass bottle / glass','backpack':'Backpack'};
 let model=null, stream=null, running=false, busy=false, total=0, ecount=0, ocount=0, eventCount=0;
 let seen=new Map(), lastAlert=0, lastFrame=0, frameN=0;
 function setStatus(s,live=false){$('statusText').textContent=s;$('liveDot').classList.toggle('live',live)}
@@ -62,13 +62,13 @@ function draw(preds){
  const w=video.videoWidth,h=video.videoHeight;if(!w||!h)return;
  if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}
  ctx.clearRect(0,0,w,h);
- preds.forEach(p=>{if(p.score<.48)return;const [x,y,bw,bh]=p.bbox;const ew=EWASTE.has(p.class);ctx.lineWidth=Math.max(2,w/420);ctx.strokeStyle=ew?'#ffd16b':'#9cf2b4';ctx.fillStyle=ew?'#ffd16b':'#9cf2b4';ctx.strokeRect(x,y,bw,bh);const label=friendly(p.class)+' '+Math.round(p.score*100)+'%';ctx.font='600 '+Math.max(13,w/65)+'px system-ui';const tw=ctx.measureText(label).width;const th=Math.max(25,w/42);ctx.fillRect(x,Math.max(0,y-th),tw+14,th);ctx.fillStyle='#09120f';ctx.fillText(label,x+7,Math.max(16,y-th/2+5));});
+ preds.filter(p=>p.class!=='person').forEach(p=>{if(p.score<.48)return;const [x,y,bw,bh]=p.bbox;const ew=EWASTE.has(p.class);ctx.lineWidth=Math.max(2,w/420);ctx.strokeStyle=ew?'#ffd16b':'#9cf2b4';ctx.fillStyle=ew?'#ffd16b':'#9cf2b4';ctx.strokeRect(x,y,bw,bh);const label=friendly(p.class)+' '+Math.round(p.score*100)+'%';ctx.font='600 '+Math.max(13,w/65)+'px system-ui';const tw=ctx.measureText(label).width;const th=Math.max(25,w/42);ctx.fillRect(x,Math.max(0,y-th),tw+14,th);ctx.fillStyle='#09120f';ctx.fillText(label,x+7,Math.max(16,y-th/2+5));});
 }
 async function loop(){
  if(!running||!model||busy)return;busy=true;
  try{
   const preds=await model.detect(video);draw(preds);
-  const visible=preds.filter(p=>p.score>=.55);
+  const visible=preds.filter(p=>p.class!=='person'&&p.score>=.55);
   const keys=new Set();
   for(const p of visible){
    const key=p.class;keys.add(key);
