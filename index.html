@@ -99,14 +99,25 @@ async function loop(){
   const visible=preds.filter(p=>p.class!=='person'&&EWASTE.has(p.class)&&p.score>=.62&&!(p.class==='cell phone'&&(p.bbox[3]/Math.max(1,p.bbox[2])<1.05||p.bbox[3]/Math.max(1,p.bbox[2])>2.9||p.bbox[2]/video.videoWidth>.42||p.bbox[3]/video.videoHeight>.8)));
   const keys=new Set();
   for(const p of visible){
-   const key=p.class;keys.add(key);
-   if(!seen.has((EWASTE.has(p.class)?'ewaste:':'other:')+key)){
+   const key=p.class,seenKey=(EWASTE.has(p.class)?'ewaste:':'other:')+key;keys.add(key);
+   if(!seen.has(seenKey)){
     const group=category(p.class),counts=inventoryCounts[group];counts.set(p.class,(counts.get(p.class)||0)+1);renderInventory();
     if(EWASTE.has(p.class)){notifyEwaste(p.class);ecount++;$('ewasteCount').textContent=ecount;}
     else {addEvent((POTENTIAL_WASTE.has(p.class)?'Potential waste: ':'Regular item: ')+friendly(p.class),'Confidence '+Math.round(p.score*100)+'% · no e-waste alert');ocount++;$('otherCount').textContent=ocount;}
     total++;$('totalCount').textContent=total;
    }
-   seen.set((EWASTE.has(p.class)?'ewaste:':'other:')+key,Date.now());
+   seen.set(seenKey,Date.now());
+  }
+  // The TFLite waste model was only drawing boxes before; register its detections too.
+  // A short seen window prevents the same object being counted again every frame.
+  for(const p of wastePreds){
+   const seenKey='waste:plastic waste';
+   if(!seen.has(seenKey)){
+    const counts=inventoryCounts.waste;counts.set('plastic waste',(counts.get('plastic waste')||0)+1);renderInventory();
+    addEvent('Plastic waste detected','Waste model confidence '+Math.round(p.score*100)+'% · please verify',false);
+    ocount++;$('otherCount').textContent=ocount;total++;$('totalCount').textContent=total;
+   }
+   seen.set(seenKey,Date.now());
   }
   for(const [k,t] of seen){if(Date.now()-t>2800)seen.delete(k)}
   frameN++;const now=performance.now();if(now-lastFrame>1000){$('fpsLabel').textContent='Continuous scan · '+frameN+' frames/s';frameN=0;lastFrame=now;}
