@@ -98,6 +98,7 @@ async function loop(){
   // Resolve obvious label conflicts: a flat notebook can trigger unrelated
   // large-object labels. When "book" overlaps those predictions, keep the book.
   const books=preds.filter(p=>p.class==='book'&&p.score>=.25);
+  const suspiciousBookLabels=preds.filter(p=>['refrigerator','toilet'].includes(p.class)&&p.score>=.25);
   const overlapRatio=(a,b)=>{
    const [ax,ay,aw,ah]=a.bbox||[a.x,a.y,a.w,a.h], [bx,by,bw,bh]=b.bbox||[b.x,b.y,b.w,b.h];
    const ix=Math.max(0,Math.min(ax+aw,bx+bw)-Math.max(ax,bx)),iy=Math.max(0,Math.min(ay+ah,by+bh)-Math.max(ay,by));
@@ -105,8 +106,13 @@ async function loop(){
   };
   const impossibleForBook=new Set(['refrigerator','toilet']);
   const displayPreds=preds.filter(p=>!(impossibleForBook.has(p.class)&&books.some(b=>overlapRatio(p,b)>.25)));
-  const overlapsBook=w=>books.some(p=>overlapRatio(w,p)>.25);
-  if(books.length){wastePreds=wastePreds.filter(w=>!overlapsBook(w));lastWastePreds=lastWastePreds.filter(w=>!overlapsBook(w));}
+  // The waste model can mistake paper notebooks for plastic. Suppress its label
+  // when it overlaps a general detector's book, refrigerator, or toilet guess.
+  const overlapsConflictingObject=w=>[...books,...suspiciousBookLabels].some(p=>overlapRatio(w,p)>.25);
+  if(books.length||suspiciousBookLabels.length){
+   wastePreds=wastePreds.filter(w=>!overlapsConflictingObject(w));
+   lastWastePreds=lastWastePreds.filter(w=>!overlapsConflictingObject(w));
+  }
   draw(displayPreds,wastePreds);
   const visible=preds.filter(p=>p.class!=='person'&&!SUPPRESS_CLASSES.has(p.class)&&p.score>=.45&&!(p.class==='cell phone'&&(p.bbox[3]/Math.max(1,p.bbox[2])<1.05||p.bbox[3]/Math.max(1,p.bbox[2])>2.9||p.bbox[2]/video.videoWidth>.42||p.bbox[3]/video.videoHeight>.8)));
   const keys=new Set();
