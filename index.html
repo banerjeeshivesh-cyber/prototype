@@ -38,7 +38,7 @@ const startBtn=$('startBtn'), stopBtn=$('stopBtn');
 const EWASTE=new Set(['cell phone','laptop','keyboard','mouse','tv','remote']);
 // These COCO-SSD labels are known misleading matches for thin, floppy plastic bags.
 // Hide them rather than presenting a confident-looking wrong label.
-const SUPPRESS_CLASSES=new Set(['tie','surfboard']);
+const SUPPRESS_CLASSES=new Set(['tie','surfboard','umbrella','book']);
 const POTENTIAL_WASTE=new Set(['plastic bag','bottle','cup','wine glass','bowl','banana','apple','sandwich','orange','broccoli','carrot','hot dog','pizza','donut','cake']);
 const inventoryCounts={ewaste:new Map(),waste:new Map(),regular:new Map()};
 const FRIENDLY={'plastic bag':'Plastic bag','cell phone':'Small electronic item*','laptop':'Laptop','keyboard':'Keyboard','mouse':'Computer mouse','tv':'TV / monitor','remote':'Remote control','bottle':'Bottle','cup':'Cup','book':'Book','can':'Can','wine glass':'Glass bottle / glass','backpack':'Backpack'};
