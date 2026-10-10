@@ -75,7 +75,7 @@ function draw(preds,wastePreds=[]){
  if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}
  ctx.clearRect(0,0,w,h);
  const paint=(x,y,bw,bh,label,color)=>{ctx.lineWidth=Math.max(2,w/420);ctx.strokeStyle=color;ctx.fillStyle=color;ctx.strokeRect(x,y,bw,bh);ctx.font='600 '+Math.max(13,w/65)+'px system-ui';const tw=ctx.measureText(label).width;const th=Math.max(25,w/42);ctx.fillRect(x,Math.max(0,y-th),tw+14,th);ctx.fillStyle='#09120f';ctx.fillText(label,x+7,Math.max(16,y-th/2+5));};
- preds.filter(p=>p.class!=='person'&&EWASTE.has(p.class)).forEach(p=>{if(p.score<.62)return;const [x,y,bw,bh]=p.bbox;const ratio=bh/Math.max(1,bw);if(p.class==='cell phone'&&(ratio<1.05||ratio>2.9||bw/w>.42||bh/h>.8))return;paint(x,y,bw,bh,friendly(p.class)+' '+Math.round(p.score*100)+'%','#ffd16b');});
+ preds.filter(p=>p.class!=='person'&&!SUPPRESS_CLASSES.has(p.class)).forEach(p=>{if(p.score<.45)return;const [x,y,bw,bh]=p.bbox;const ratio=bh/Math.max(1,bw);if(p.class==='cell phone'&&(ratio<1.05||ratio>2.9||bw/w>.42||bh/h>.8))return;paint(x,y,bw,bh,friendly(p.class)+' '+Math.round(p.score*100)+'%',EWASTE.has(p.class)?'#ffd16b':'#9cf2b4');});
  wastePreds.forEach(p=>{if(p.score<.4)return;paint(p.x,p.y,p.w,p.h,p.label+' '+Math.round(p.score*100)+'%','#52a7ff');});
 }
 async function loop(){
@@ -96,7 +96,7 @@ async function loop(){
   if(!wastePreds.length&&Date.now()-lastWasteAt<1600)wastePreds=lastWastePreds;
   if(Date.now()-lastWasteAt>=1600)lastWastePreds=[];
   draw(preds,wastePreds);
-  const visible=preds.filter(p=>p.class!=='person'&&EWASTE.has(p.class)&&p.score>=.62&&!(p.class==='cell phone'&&(p.bbox[3]/Math.max(1,p.bbox[2])<1.05||p.bbox[3]/Math.max(1,p.bbox[2])>2.9||p.bbox[2]/video.videoWidth>.42||p.bbox[3]/video.videoHeight>.8)));
+  const visible=preds.filter(p=>p.class!=='person'&&!SUPPRESS_CLASSES.has(p.class)&&p.score>=.45&&!(p.class==='cell phone'&&(p.bbox[3]/Math.max(1,p.bbox[2])<1.05||p.bbox[3]/Math.max(1,p.bbox[2])>2.9||p.bbox[2]/video.videoWidth>.42||p.bbox[3]/video.videoHeight>.8)));
   const keys=new Set();
   for(const p of visible){
    const key=p.class,seenKey=(EWASTE.has(p.class)?'ewaste:':'other:')+key;keys.add(key);
